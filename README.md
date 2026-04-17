@@ -25,8 +25,12 @@ To load the module automatically at boot, create an entry in `/etc/modules-load.
 
 ## Install (TrueNAS SCALE)
 
-TrueNAS has an immutable root filesystem, so DKMS cannot be used. Instead, the module is built
-inside a Docker container and cached per kernel version.
+TrueNAS has an immutable root filesystem, so DKMS cannot be used. Instead, `load_fans.sh`
+builds the module at boot and caches it per kernel version.
+
+The module is built inside a Docker container (`debian:sid`) which automatically installs
+the exact GCC version matching your kernel (e.g., `gcc-14` for a GCC 14 kernel). Docker
+and network connectivity are required at first boot (subsequent boots use the cached `.ko` file).
 
 ### Setup
 
@@ -43,9 +47,9 @@ inside a Docker container and cached per kernel version.
 
 ### How it works
 
-- **`load_fans.sh`** runs at boot: builds the kernel module in Docker (if not cached for the
-  current kernel), loads it with `insmod`, and verifies the hwmon node appears. Old kernel
-  caches are automatically cleaned up.
+- **`load_fans.sh`** runs at boot: builds the kernel module via Docker if not
+  cached for the current kernel, loads it with `insmod`, and verifies the hwmon node appears.
+  Old kernel caches are automatically cleaned up.
 - **`control_hdd_fans.sh`** runs every minute via cron: reads disk temperatures with
   `smartctl`, applies a configurable fan curve, and writes PWM values to the hwmon sysfs
   interface. Uses `flock` to prevent overlapping runs.
@@ -69,7 +73,8 @@ Fan 1 and 2 are manual (controlled by `control_hdd_fans.sh` on TrueNAS).
 Fan 3 defaults to auto (BIOS/EC control). Set `pwm3_enable` to 1 for manual control,
 or leave at 2 for automatic control.
 
-Fan PWM accepts a value between 0 and 183 (values above 183 will set pwm to 100%).
+Fan PWM accepts values 0–183, mapping to 0%–100% fan speed. Values outside this range are rejected.
+This is a hardware-specific range, not the standard 0–255 hwmon scale.
 Setting `pwm3` to 0 will revert the CPU fan to auto control.
 
 Setting a value between 0 and 183 will scale fans from 0% to 100% (e.g. 50% is 91-92).
@@ -106,7 +111,7 @@ Changes to `fan_curve.conf` take effect on the next cron run — no restart or r
 
 ## TrueNAS Upgrades
 
-On TrueNAS upgrade, `load_fans.sh` automatically detects the new kernel version, rebuilds the module via Docker, and caches the new `.ko` file. Old kernel caches are cleaned up automatically. No manual action is needed.
+On TrueNAS upgrade, `load_fans.sh` automatically detects the new kernel version, rebuilds the module, and caches the new `.ko` file. Old kernel caches are cleaned up automatically. No manual action is needed.
 
 ## Troubleshooting
 
@@ -115,7 +120,7 @@ On TrueNAS upgrade, `load_fans.sh` automatically detects the new kernel version,
 | "hwmon node not found" in logs | Check if module is loaded: `lsmod \| grep zettlab` |
 | "no disks found" | Ensure SMART-capable disks are present: `smartctl --scan` |
 | Permission denied on pwm files | Script must run as root; check `pwm_enable` is set to 1 |
-| Docker build fails | Check network connectivity and disk space |
+| Build fails | Check Docker is running, network is available, and disk has space. Check log for GCC version mismatch. |
 | Module won't load after TrueNAS update | Delete `built/` directory and re-run `load_fans.sh` |
 | Fans not responding to PWM changes | Verify hwmon path: `cat /sys/class/hwmon/hwmon*/name` |
 
