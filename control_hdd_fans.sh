@@ -123,7 +123,8 @@ else
 
   # Critical / warning alerting
   if [ "$HOTTEST" -ge "$TEMP_CRITICAL" ]; then
-    log "CRITICAL: $HOTTEST_DISK at ${HOTTEST}C — fans at maximum"
+    TARGET_PWM=183
+    log "CRITICAL: $HOTTEST_DISK at ${HOTTEST}C — fans forced to maximum"
   elif [ "$HOTTEST" -ge "$TEMP_WARNING" ]; then
     log "WARNING: $HOTTEST_DISK at ${HOTTEST}C"
   fi
@@ -138,7 +139,7 @@ fi
 CHANGED=1
 if [[ "${LAST_PWM:-}" =~ ^[0-9]+$ ]]; then
   DIFF=$(( TARGET_PWM - LAST_PWM ))
-  if [ "$DIFF" -ge 0 ] && [ "$DIFF" -eq 0 ]; then
+  if [ "$DIFF" -eq 0 ]; then
     # No change at all
     CHANGED=0
   elif [ "$DIFF" -lt 0 ] && [ "${DIFF#-}" -lt "$HYSTERESIS_DOWN" ]; then
