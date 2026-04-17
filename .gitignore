@@ -12,3 +12,4 @@ state/
 .*.cmd
 Module.symvers
 modules.order
+.DS_Store
