@@ -174,6 +174,9 @@ else
   fi
   log "Module loaded for kernel $KVER"
 
+  # Clear stale state so fan control always writes a fresh PWM after loading
+  rm -f "$STATE_FILE" "$HEARTBEAT_FILE"
+
   # Wait for hwmon node to appear
   for _ in $(seq 1 10); do
     if HWMON="$(find_hwmon)"; then break; fi
